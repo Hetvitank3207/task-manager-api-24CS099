@@ -1,0 +1,45 @@
+# Dependencies
+node_modules/
+jspm_packages/
+
+# Environment variables & secrets
+.env
+.env.local
+.env.*.local
+.env.development
+.env.test
+.env.production
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# OS metadata
+.DS_Store
+Thumbs.db
+
+# IDE & Editor settings
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+.idea/
+*.sublime-project
+*.sublime-workspace
+*.swp
+*.swo
+
+# Build & Coverage artifacts
+dist/
+build/
+coverage/
+.nyc_output/
+
+# Cache & Temp
+.npm/
+.eslintcache
+*.tsbuildinfo
