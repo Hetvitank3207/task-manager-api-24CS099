@@ -1,36 +1,50 @@
-require("dotenv").config();
 const express = require("express");
 const mongoose = require("mongoose");
+const cors = require("cors");
 
-const logger = require("./middleware/logger");
-const errorHandler = require("./middleware/errorHandler");
-const taskRoutes = require("./routes/taskRoutes");
+require("dotenv").config();
 
 const app = express();
 
-const PORT = process.env.PORT || 3000;
-const MONGODB_URI = process.env.MONGODB_URI || "mongodb://localhost:27017/Practical_5";
+const logger = require("./middleware/logger");
+const errorHandler = require("./middleware/errorHandler");
+const contentType = require("./middleware/contentType");
+const taskRoutes = require("./routes/taskRoutes");
 
-// Connect to MongoDB
-mongoose.connect(MONGODB_URI)
+// MIDDLEWARE
+app.use(cors());
+
+app.use(express.json());
+
+app.use(logger);
+
+app.use(contentType);
+
+// MONGODB CONNECTION
+mongoose
+    .connect(process.env.MONGO_URI)
     .then(() => {
         console.log("MongoDB connected successfully");
     })
     .catch((error) => {
-        console.error("MongoDB connection failed:", error.message);
+        console.error("MongoDB connection failed:", error);
     });
 
-// Middleware
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
-app.use(logger);
-
-// Task Routes
+// ROUTES
 app.use("/tasks", taskRoutes);
 
-// Centralized Error Handling Middleware
+// 404 HANDLER
+app.use((req, res) => {
+    res.status(404).json({
+        message: "Route not found"
+    });
+});
+// GLOBAL ERROR HANDLER
 app.use(errorHandler);
 
+// START SERVER
+const PORT = 5000;
+
 app.listen(PORT, () => {
-    console.log(`Server is running on port ${PORT}`);
+    console.log(`Server running at http://localhost:${PORT}`);
 });

@@ -3,30 +3,27 @@ const mongoose = require("mongoose");
 const taskSchema = new mongoose.Schema({
     title: {
         type: String,
-        required: [true, "Title is required"],
-        trim: true
+        required: true
     },
+
     description: {
-        type: String,
-        trim: true,
-        default: ""
+        type: String
     },
+
     completed: {
         type: Boolean,
         default: false
     },
-    priority: {
-        type: String,
-        enum: {
-            values: ["low", "medium", "high"],
-            message: "{VALUE} is not a valid priority (allowed: low, medium, high)"
-        },
-        default: "medium",
-        lowercase: true
-    },
+
     createdAt: {
         type: Date,
         default: Date.now
+    },
+
+    priority: {
+        type: String,
+        enum: ["low", "medium", "high"],
+        default: "medium"
     }
 });
 

@@ -1,32 +1,30 @@
 function errorHandler(err, req, res, next) {
-    console.error(err.message || err);
+    console.error(err);
 
-    // Mongoose Validation Error (e.g. required field missing)
+    // Mongoose Validation Error
     if (err.name === "ValidationError") {
         const errors = {};
+
         for (let field in err.errors) {
             errors[field] = err.errors[field].message;
         }
 
         return res.status(400).json({
-            success: false,
             message: "Validation failed",
             errors: errors
         });
     }
 
-    // Invalid MongoDB ObjectId (CastError)
+    // Invalid MongoDB ID
     if (err.name === "CastError") {
         return res.status(400).json({
-            success: false,
-            message: `Invalid ${err.path}: ${err.value}`
+            message: "Invalid task ID"
         });
     }
 
-    // Generic fallback error
-    return res.status(err.statusCode || 500).json({
-        success: false,
-        message: err.message || "Internal Server Error"
+    // Other errors
+    return res.status(500).json({
+        message: "Internal Server Error"
     });
 }
 

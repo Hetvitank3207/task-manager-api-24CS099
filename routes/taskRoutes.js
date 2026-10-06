@@ -1,19 +1,21 @@
 const express = require("express");
-const Task = require("../models/Task");
 
 const router = express.Router();
 
-// GET /tasks - Fetch all tasks
+const Task = require("../models/Task");
+
+// GET /tasks
 router.get("/", async (req, res, next) => {
     try {
         const tasks = await Task.find();
+
         res.status(200).json(tasks);
     } catch (error) {
         next(error);
     }
 });
 
-// GET /tasks/:id - Fetch single task by ID
+// GET /tasks/:id
 router.get("/:id", async (req, res, next) => {
     try {
         const task = await Task.findById(req.params.id);
@@ -30,27 +32,33 @@ router.get("/:id", async (req, res, next) => {
     }
 });
 
-// POST /tasks - Create a new task
+// POST /tasks
 router.post("/", async (req, res, next) => {
     try {
-        const body = req.body || {};
-        const task = new Task(body);
+        const task = new Task({
+            title: req.body.title,
+            description: req.body.description,
+            completed: req.body.completed,
+            priority: req.body.priority
+        });
 
         const savedTask = await task.save();
 
-        res.status(201).json(savedTask);
+        res.status(201).json({
+            message: "Task created successfully",
+            task: savedTask
+        });
     } catch (error) {
         next(error);
     }
 });
 
-// PUT /tasks/:id - Update a task by ID
+// PUT /tasks/:id
 router.put("/:id", async (req, res, next) => {
     try {
-        const body = req.body || {};
         const task = await Task.findByIdAndUpdate(
             req.params.id,
-            body,
+            req.body,
             {
                 new: true,
                 runValidators: true
@@ -63,13 +71,16 @@ router.put("/:id", async (req, res, next) => {
             });
         }
 
-        res.status(200).json(task);
+        res.status(200).json({
+            message: "Task updated successfully",
+            task: task
+        });
     } catch (error) {
         next(error);
     }
 });
 
-// DELETE /tasks/:id - Delete a task by ID
+// DELETE /tasks/:id
 router.delete("/:id", async (req, res, next) => {
     try {
         const task = await Task.findByIdAndDelete(req.params.id);
