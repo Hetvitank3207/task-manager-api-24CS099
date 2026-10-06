@@ -1,25 +1,36 @@
-const express=require("express");
-const mongoose=require("mongoose");
+require("dotenv").config();
+const express = require("express");
+const mongoose = require("mongoose");
 
-const app=express();
+const logger = require("./middleware/logger");
+const errorHandler = require("./middleware/errorHandler");
+const taskRoutes = require("./routes/taskRoutes");
 
-const logger= require("./middleware/logger");
-const errorHandler= require("./middleware/errorHandler");
-const taskRoutes= require("./routes/taskRoutes");
+const app = express();
 
-mongoose.connect("mongodb://localhost:27017/Practical_5")
-  .then(()=>{
-    console.log("MongoDB connected successfully");
-  })
-  .catch((error)=>{
-    console.log("MongoDb connection failed");
-  });
+const PORT = process.env.PORT || 3000;
+const MONGODB_URI = process.env.MONGODB_URI || "mongodb://localhost:27017/Practical_5";
+
+// Connect to MongoDB
+mongoose.connect(MONGODB_URI)
+    .then(() => {
+        console.log("MongoDB connected successfully");
+    })
+    .catch((error) => {
+        console.error("MongoDB connection failed:", error.message);
+    });
+
+// Middleware
 app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 app.use(logger);
-app.use("/tasks",taskRoutes);
 
+// Task Routes
+app.use("/tasks", taskRoutes);
 
-const PORT = 3000;
+// Centralized Error Handling Middleware
+app.use(errorHandler);
+
 app.listen(PORT, () => {
-  console.log(`Server is running on port ${PORT}`);
+    console.log(`Server is running on port ${PORT}`);
 });
