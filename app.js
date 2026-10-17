@@ -1,8 +1,7 @@
-
 const express = require("express");
 const mongoose = require("mongoose");
 const cors = require("cors");
-
+require("./events/taskListeners");
 require("dotenv").config();
 
 const app = express();

@@ -1,20 +1,23 @@
 const express = require("express");
 const mongoose = require("mongoose");
 const router = express.Router();
+
 const cache = require("../utils/cache");
 const Task = require("../models/Task");
 const authMiddleware = require("../middleware/authMiddleware");
 const validateTask = require("../middleware/validateTask");
+const taskEvents = require("../events/taskEvents");
 
 // Protect every task endpoint
 router.use(authMiddleware);
 
-// Cache keys are scoped to the authenticated user
+// Cache keys scoped to each authenticated user
 const allTasksKey = (userId) => `tasks:${userId}:all`;
+
 const singleTaskKey = (userId, taskId) =>
   `tasks:${userId}:${taskId}`;
 
-// Invalidate a user's task caches after a successful write
+// Invalidate task caches after successful writes
 const invalidateUserTaskCache = (userId, taskId = null) => {
   cache.del(allTasksKey(userId));
 
@@ -23,11 +26,12 @@ const invalidateUserTaskCache = (userId, taskId = null) => {
   }
 };
 
-// GET /tasks — cache all tasks for the current user
+// GET /tasks — retrieve all tasks belonging to the logged-in user
 router.get("/", async (req, res, next) => {
   try {
     const userId = String(req.user.id);
     const key = allTasksKey(userId);
+
     const cachedTasks = cache.get(key);
 
     if (cachedTasks !== undefined) {
@@ -35,6 +39,7 @@ router.get("/", async (req, res, next) => {
     }
 
     const tasks = await Task.find({ owner: userId });
+
     cache.set(key, tasks);
 
     return res.status(200).json(tasks);
@@ -43,16 +48,28 @@ router.get("/", async (req, res, next) => {
   }
 });
 
-// GET /tasks/:id — cache one task for the current user
+// GET /tasks/debug/cache — view in-memory cache statistics
+router.get("/debug/cache", (req, res) => {
+  return res.status(200).json({
+    message: "In-memory cache statistics",
+    stats: cache.getStats(),
+    keys: cache.keys()
+  });
+});
+
+// GET /tasks/:id — retrieve one task belonging to the logged-in user
 router.get("/:id", async (req, res, next) => {
   try {
     if (!mongoose.isValidObjectId(req.params.id)) {
-      return res.status(400).json({ message: "Invalid task ID." });
+      return res.status(400).json({
+        message: "Invalid task ID."
+      });
     }
 
     const userId = String(req.user.id);
     const taskId = req.params.id;
     const key = singleTaskKey(userId, taskId);
+
     const cachedTask = cache.get(key);
 
     if (cachedTask !== undefined) {
@@ -65,17 +82,20 @@ router.get("/:id", async (req, res, next) => {
     });
 
     if (!task) {
-      return res.status(404).json({ message: "Task not found." });
+      return res.status(404).json({
+        message: "Task not found."
+      });
     }
 
     cache.set(key, task);
+
     return res.status(200).json(task);
   } catch (error) {
     next(error);
   }
 });
 
-// POST /tasks
+// POST /tasks — create a task and emit a background notification
 router.post("/", validateTask, async (req, res, next) => {
   try {
     const userId = String(req.user.id);
@@ -88,29 +108,49 @@ router.post("/", validateTask, async (req, res, next) => {
       owner: userId
     });
 
+    // Practical 9: invalidate cached task lists
     invalidateUserTaskCache(userId);
 
-    return res.status(201).json({
+    console.log(
+      `[API] Sending response at ${new Date().toISOString()}`
+    );
+
+    // Send the response before scheduling the notification
+    res.status(201).json({
       message: "Task created successfully.",
       task
+    });
+
+    // Practical 10: defer event emission until after the response
+    setImmediate(() => {
+      taskEvents.emit("task-created", {
+        title: task.title,
+        owner: userId,
+        taskId: String(task._id)
+      });
     });
   } catch (error) {
     next(error);
   }
 });
 
-// PUT /tasks/:id
+// PUT /tasks/:id — update a task
 router.put("/:id", async (req, res, next) => {
   try {
     if (!mongoose.isValidObjectId(req.params.id)) {
-      return res.status(400).json({ message: "Invalid task ID." });
+      return res.status(400).json({
+        message: "Invalid task ID."
+      });
     }
 
     const userId = String(req.user.id);
     const taskId = req.params.id;
 
     const allowedFields = [
-      "title", "description", "completed", "priority"
+      "title",
+      "description",
+      "completed",
+      "priority"
     ];
 
     const updates = {};
@@ -142,15 +182,24 @@ router.put("/:id", async (req, res, next) => {
     }
 
     const task = await Task.findOneAndUpdate(
-      { _id: taskId, owner: userId },
+      {
+        _id: taskId,
+        owner: userId
+      },
       updates,
-      { new: true, runValidators: true }
+      {
+        new: true,
+        runValidators: true
+      }
     );
 
     if (!task) {
-      return res.status(404).json({ message: "Task not found." });
+      return res.status(404).json({
+        message: "Task not found."
+      });
     }
 
+    // Invalidate list and individual task caches
     invalidateUserTaskCache(userId, taskId);
 
     return res.status(200).json({
@@ -162,11 +211,13 @@ router.put("/:id", async (req, res, next) => {
   }
 });
 
-// DELETE /tasks/:id
+// DELETE /tasks/:id — delete a task and emit a notification
 router.delete("/:id", async (req, res, next) => {
   try {
     if (!mongoose.isValidObjectId(req.params.id)) {
-      return res.status(400).json({ message: "Invalid task ID." });
+      return res.status(400).json({
+        message: "Invalid task ID."
+      });
     }
 
     const userId = String(req.user.id);
@@ -178,26 +229,34 @@ router.delete("/:id", async (req, res, next) => {
     });
 
     if (!task) {
-      return res.status(404).json({ message: "Task not found." });
+      return res.status(404).json({
+        message: "Task not found."
+      });
     }
 
+    // Practical 9: invalidate cached data
     invalidateUserTaskCache(userId, taskId);
 
-    return res.status(200).json({
+    console.log(
+      `[API] Delete response sent at ${new Date().toISOString()}`
+    );
+
+    // Respond to the client first
+    res.status(200).json({
       message: "Task deleted successfully."
+    });
+
+    // Practical 10: schedule deletion notification
+    setImmediate(() => {
+      taskEvents.emit("task-deleted", {
+        title: task.title,
+        owner: userId,
+        taskId: String(task._id)
+      });
     });
   } catch (error) {
     next(error);
   }
-});
-
-// GET /tasks/debug/cache — cache statistics
-router.get("/debug/cache", (req, res) => {
-  return res.status(200).json({
-    message: "In-memory cache statistics",
-    stats: cache.getStats(),
-    keys: cache.keys()
-  });
 });
 
 module.exports = router;
