@@ -1,10 +1,27 @@
-const request = require("supertest");
-const app = require("../app");
 
-describe("Task Manager API", () => {
-  test("GET /tasks rejects requests without authentication", async () => {
-    const response = await request(app).get("/tasks");
+name: CI Pipeline
 
-    expect(response.statusCode).toBe(401);
-  });
-});
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Run automated tests
+        run: npm test
