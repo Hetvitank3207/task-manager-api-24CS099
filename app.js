@@ -1,8 +1,10 @@
+
 const express = require("express");
 const mongoose = require("mongoose");
 const cors = require("cors");
-require("./events/taskListeners");
 require("dotenv").config();
+
+require("./events/taskListeners");
 
 const app = express();
 
@@ -16,13 +18,6 @@ app.use(cors());
 app.use(express.json());
 app.use(logger);
 app.use(contentType);
-
-mongoose
-  .connect(process.env.MONGO_URI)
-  .then(() => console.log("MongoDB connected successfully"))
-  .catch((error) => {
-    console.error("MongoDB connection failed:", error);
-  });
 
 // PUBLIC authentication endpoints
 app.use("/auth", authRoutes);
@@ -40,6 +35,21 @@ app.use(errorHandler);
 
 const PORT = process.env.PORT || 5000;
 
-app.listen(PORT, () => {
-  console.log(`Server running at http://localhost:${PORT}`);
-});
+// Start database and HTTP server only when app.js is run directly.
+if (require.main === module) {
+  mongoose
+    .connect(process.env.MONGO_URI)
+    .then(() => {
+      console.log("MongoDB connected successfully");
+
+      app.listen(PORT, "0.0.0.0", () => {
+        console.log(`Server running at http://localhost:${PORT}`);
+      });
+    })
+    .catch((error) => {
+      console.error("MongoDB connection failed:", error);
+      process.exit(1);
+    });
+}
+
+module.exports = app;
