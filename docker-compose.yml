@@ -1,0 +1,49 @@
+
+services:
+  mongodb:
+    image: mongo:7
+    container_name: taskmanager-mongodb
+    restart: unless-stopped
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongodb_data:/data/db
+    networks:
+      - app-network
+
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: taskmanager-backend
+    restart: unless-stopped
+    ports:
+      - "5000:5000"
+    environment:
+      PORT: 5000
+      MONGO_URI: mongodb://mongodb:27017/Practical_5
+      JWT_SECRET: ${JWT_SECRET}
+    depends_on:
+      - mongodb
+    networks:
+      - app-network
+
+  frontend:
+    build:
+      context: ../task_manager_frontend/task-manager-api-frontend-24CS099
+      dockerfile: Dockerfile
+    container_name: taskmanager-frontend
+    restart: unless-stopped
+    ports:
+      - "5174:80"
+    depends_on:
+      - backend
+    networks:
+      - app-network
+
+networks:
+  app-network:
+    driver: bridge
+
+volumes:
+  mongodb_data:
